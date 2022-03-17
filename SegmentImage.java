@@ -256,7 +256,7 @@ public class SegmentImage extends Frame implements ActionListener {
 			}
 		}
 
-
+		output_image = inverse(output_image);
 		int min_int = 255;
 		int max_int = 0;
 		for ( int q=0 ; q<height ; q++ ) {
@@ -275,10 +275,12 @@ public class SegmentImage extends Frame implements ActionListener {
 			for ( int p=0 ; p<width ; p++ ) {
 				Color clr = new Color(output_image.getRGB(p,q));
 				int intensity = (clr.getRed() + clr.getGreen() + clr.getBlue())/3;
-				double slope = (max_int-255)/(min_int - 1);
-				int output_intensity = ((int) slope*intensity) + (0 - ((int) slope*min_int));
+				double slope = (255)/(max_int - min_int);
+				// double slope = 255/max_int;
+				int output_intensity = ((int) slope*intensity) - (int) slope*min_int;
+				// int output_intensity = intensity * (int) slope;
 				// print_(output_intensity);
-				output_intensity = Math.min(intensity, 255);
+				output_intensity = Math.min(output_intensity, 255);
 
 				output_image.setRGB(p, q, new Color(output_intensity, output_intensity, output_intensity).getRGB());
 
@@ -287,7 +289,22 @@ public class SegmentImage extends Frame implements ActionListener {
 		System.out.println("Setting Distance Transform");
 		return output_image;
 	}
-
+	public BufferedImage inverse(BufferedImage image){
+		int l, r, dr, dg, db;
+		Color clr1, clr2;
+		BufferedImage t = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+		
+		for ( int q=0 ; q<height ; q++ ) {
+			for ( int p=0 ; p<width ; p++ ) {
+				clr1 = new Color(image.getRGB(p,q));
+				int intensity = (clr1.getRed() + clr1.getGreen() + clr1.getBlue())/3;
+				intensity = 255 - intensity;
+				t.setRGB(p, q, new Color(intensity, intensity, intensity).getRGB());
+				
+			}
+		}
+		return t;
+	}
 	public BufferedImage thresholding(BufferedImage image) {
 		int l, r, dr, dg, db;
 		Color clr1, clr2;
@@ -297,7 +314,7 @@ public class SegmentImage extends Frame implements ActionListener {
 			for ( int p=0 ; p<width ; p++ ) {
 				clr1 = new Color(image.getRGB(p,q));
 				int intensity = (clr1.getRed() + clr1.getGreen() + clr1.getBlue())/3;
-				if (intensity > 128){
+				if (intensity < 128){
 					// t.setRGB(p, q, new Color(255, 255, 255).getRGB());
 					t.setRGB(p, q, new Color(0, 0, 0).getRGB());
 
