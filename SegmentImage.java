@@ -73,11 +73,6 @@ public class SegmentImage extends Frame implements ActionListener {
 		// generate Moravec corner detection result
 		source.resetImage(input);
 		BufferedImage src_image = source.image;
-		
-		// BufferedImage src_image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		// Graphics2D g2d = src_image.createGraphics();
-		// g2d.drawImage(source.image, 0, 0, null);
-		// g2d.dispose();
 		int pixel_size = src_image.getColorModel().getPixelSize();
 
 		if ( ((Button)e.getSource()).getLabel().equals("Watershed") ) {
@@ -110,29 +105,11 @@ public class SegmentImage extends Frame implements ActionListener {
 			target.resetImage(k_means(src_image, numK));
 		}
 	}
-
-	// moravec implementation
-	public BufferedImage derivatives(BufferedImage img) {
-		int l, r, dr, dg, db;
-		Color clr1, clr2;
-		BufferedImage output = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_RGB);
-		for ( int q=0 ; q<height ; q++ ) {
-			for ( int p=0 ; p<width ; p++ ) {
-				l = p==0 ? p : p-1;
-				r = p==width-1 ? p : p+1;
-				clr1 = new Color(img.getRGB(l,q));
-				clr2 = new Color(img.getRGB(r,q));
-				dr = clr2.getRed() - clr1.getRed();
-				dg = clr2.getGreen() - clr1.getGreen();
-				db = clr2.getBlue() - clr1.getBlue();
-				dr = Math.max(0, Math.min(dr+128, 255));
-				dg = Math.max(0, Math.min(dg+128, 255));
-				db = Math.max(0, Math.min(db+128, 255));
-				output.setRGB(p, q, new Color(dr, dg, db).getRGB());
-			}
-		}
-		return output;
-	}
+	
+	/*Function to apply the intensity watershed segmentation algorithm to a grayscale image
+		Input (BufferedImage): Original Grayscale Image
+		Output (BufferedImage): Intensity watershed segmented image
+	*/
 	public BufferedImage intensity_watershed(BufferedImage img){
 			BufferedImage output_image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 			int left, middle, right, up, down, up_left, up_right, down_left, down_right, intensity;
@@ -145,8 +122,8 @@ public class SegmentImage extends Frame implements ActionListener {
 				for ( int q=0 ; q<height ; q++ ) {
 					for ( int p=0 ; p<width ; p++ ) {
 						int current_pixel_intensity = img.getRaster().getSample(p, q, 0);
-						// if (current_pixel_intensity == intensity){
-						if (current_pixel_intensity > intensity - numK -1 && current_pixel_intensity < intensity + numK - 1){
+						if (current_pixel_intensity == intensity){
+						// if (current_pixel_intensity > intensity - numK -1 && current_pixel_intensity < intensity + numK - 1){
 							left = p==0 ? p : p-1;
 							middle = p;
 							right = p==width-1 ? p : p+1;
@@ -188,10 +165,6 @@ public class SegmentImage extends Frame implements ActionListener {
 								//If current pixel is not adjacent to any existing region, assign new random color
 								output_image_color = new Color((int) (Math.random()*255d),(int) (Math.random()*255d),(int) (Math.random()*255d));
 								int hsv = Color.HSBtoRGB(intensity/255f , 1f, 1f);
-								// output_image_color = new Color(hsv, true);
-								// output_image.setRGB(p, q, hsv);
-								// System.out.println("Got Color" + color);
-								// output_image.setRGB(p, q, color);
 							}else if(adjacent_pixels.size() == 1){
 
 								//If current pixel is adjacent to a single existing region, assign color of existing region
@@ -199,28 +172,46 @@ public class SegmentImage extends Frame implements ActionListener {
 							}else if(adjacent_pixels.size() > 1){
 								//If current pixel is adjacent to 2 or more existing regions
 								HashSet<Integer> hset = new HashSet<Integer>(adjacent_pixels);
+								//If both existing regions have the same color, set to color
 								if (hset.size() == 1){
 									output_image_color = new Color(adjacent_pixels.get(0), true);
 								}else{
+								//If two different regions, set to white
 									output_image_color = new Color(255,255,255);
-
 								}
-
 							}
 							output_image.setRGB(p, q, output_image_color.getRGB());
 						}
 					}
 				}
 			}
-			System.out.println("Drawing Watershed Image");			
-
 			return output_image;
 	}
 	
+	/*Function to find the distance transform of a Binary image
+		Input (BufferedImage): Original Binary Image
+		Output (BufferedImage): Distance Transform Image
+		Distance Transform Algorithm (Dynamic Programming Implementation):
+			- Iterate through each pixel in the grayscale image
+			- If pixel intensity is white, set output to infinity (Large number)
+			- If pixel intensity is black, set output to 0
+			- Forward Pass:
+				- Iterate through each pixel
+				- Find distance to the closest feature on left
+					- Check top and left in the forward pass
+			- Backward Pass:
+				- Iterate through each pixel
+				- Find distance to the closest feature on the right
+					- Check bottom and right in the backward pass
+			- Normalizing:
+				- Distance transform image may be very dim
+					- Normalize the image by linearly scaling each pixel between a range of 0 and 255
+	*/
 	public BufferedImage distance_transform(BufferedImage img){
 		BufferedImage output_image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 		int[][] D = new int[width][height];
 		
+		//Check if binary image pixel is foreground or background
 		for ( int q=0 ; q<height ; q++ ) {
 			for ( int p=0 ; p<width ; p++ ) {
 				if (img.getRGB(p, q) == Color.white.getRGB()){
@@ -230,6 +221,8 @@ public class SegmentImage extends Frame implements ActionListener {
 				}
 			}
 		}
+
+		//Forward Pass
 		for ( int q=0 ; q<height ; q++ ) {
 			for ( int p=0 ; p<width ; p++ ) {
 				int l = p==0 ? p : p-1;
@@ -239,6 +232,8 @@ public class SegmentImage extends Frame implements ActionListener {
 				D[p][q] = Math.min(Math.min(D[p][q], D[l][q]+1), D[p][u]+1);
 			}
 		}
+
+		//Backward Pass
 		for ( int q=height-1 ; q>=0 ; q-- ) {
 			for ( int p=width-1 ; p>=0 ; p-- ) {
 				int l = p==0 ? p : p-1;
@@ -248,6 +243,8 @@ public class SegmentImage extends Frame implements ActionListener {
 				D[p][q] = Math.min(Math.min(D[p][q], D[r][q]+1), D[p][d]+1);
 			}
 		}
+	
+		//Convert Matrix to BufferedImage
 		for ( int q=0 ; q<height ; q++) {
 			for ( int p=0 ; p<width ; p++ ) {
 				int d_color = D[p][q];
@@ -256,9 +253,12 @@ public class SegmentImage extends Frame implements ActionListener {
 			}
 		}
 
+		//Inverse Grayscale Image
 		output_image = inverse(output_image);
 		int min_int = 255;
 		int max_int = 0;
+
+		//Find minimum and maximum intensity of image
 		for ( int q=0 ; q<height ; q++ ) {
 			for ( int p=0 ; p<width ; p++ ) {
 				Color clr = new Color(output_image.getRGB(p,q));
@@ -271,24 +271,30 @@ public class SegmentImage extends Frame implements ActionListener {
 				}
 			}
 		}
+
+		//Linearly scale pixels to a range between 0 and 255
 		for ( int q=0 ; q<height ; q++ ) {
 			for ( int p=0 ; p<width ; p++ ) {
 				Color clr = new Color(output_image.getRGB(p,q));
 				int intensity = (clr.getRed() + clr.getGreen() + clr.getBlue())/3;
 				double slope = (255)/(max_int - min_int);
-				// double slope = 255/max_int;
 				int output_intensity = ((int) slope*intensity) - (int) slope*min_int;
-				// int output_intensity = intensity * (int) slope;
-				// print_(output_intensity);
 				output_intensity = Math.min(output_intensity, 255);
 
 				output_image.setRGB(p, q, new Color(output_intensity, output_intensity, output_intensity).getRGB());
 
 			}
 		}
-		System.out.println("Setting Distance Transform");
 		return output_image;
 	}
+
+	/*Function to invert grayscale image
+		Input (BufferedImage): Original Grayscale Image
+		Output (BufferedImage): Inverted Image
+		Inverting Algorithm:
+			- Iterate through each pixel in the grayscale image
+			- Subtract pixel intensity by 255
+	*/
 	public BufferedImage inverse(BufferedImage image){
 		int l, r, dr, dg, db;
 		Color clr1, clr2;
@@ -305,6 +311,15 @@ public class SegmentImage extends Frame implements ActionListener {
 		}
 		return t;
 	}
+
+	/*Function to threshold grayscale image
+		Input (BufferedImage): Original Grayscale Image
+		Output (BufferedImage): Binary Image
+		Thresholding Algorithm:
+			- Iterate through each pixel in the grayscale image
+			- If pixel intensity is greater than the threshold value, set to white
+			- If pixel intensity is less than the threshold value, set to black
+	*/
 	public BufferedImage thresholding(BufferedImage image) {
 		int l, r, dr, dg, db;
 		Color clr1, clr2;
@@ -329,6 +344,11 @@ public class SegmentImage extends Frame implements ActionListener {
 
 		return t;
 	}
+
+	/*Function to get the intensity of the image in the x direction
+		Input (BufferedImage): Original Image
+		Output (BufferedImage): Intensity of input in the x direction. RGB values are offset by 128
+	*/
 	public BufferedImage derivatives_x(BufferedImage image) {
 		int l, r, dr, dg, db;
 		Color clr1, clr2;
@@ -407,16 +427,27 @@ public class SegmentImage extends Frame implements ActionListener {
 		}
 		return t;
 	}
+
+	/*Function to apply K-Means image segmentation
+		Input (BufferedImage, int): Original RGB image, number of K clusters desired
+		Output (BufferedImage): Image segmented with K randomly generated colors
+		K-Means Function:
+			- Randomly assign K colors to K cluster centers
+			- Calculate distance from each pixel color in original image to cluster centers
+			- Pick closest cluster to pixel color
+			- Assign pixel to closest cluster
+			- Once all pixels are assigned to it's respective cluster, computer the new cluster center
+				- Average all colors in the cluster by adding all colors in the cluster and dividing by total number of pixels in the cluster
+			- Repeat algorithm with new cluster centers
+			- Stop algorithm until there is no further change in assignment of pixel points to clusters.
+	*/
 	public BufferedImage k_means(BufferedImage img, int k){
 		BufferedImage output_image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 		Color[] cluster_center = new Color[k];
-		// ArrayList<ArrayList<Integer>> cluster_pixels = new ArrayList<ArrayList<Integer>>(k);
-		
-		int closest_k = 100;
-		Color closest_color = new Color(0,0,0);
 		int[][] cluster_pixels = new int[k][3];
 		int[] cluster_pixel_count = new int[k];
-
+		double closest_distance_overall = 1000000d;
+		
 		//Picking K cluster centers randomly
 		for (int i = 0; i < k; i++){
 			int random_red = (int) (Math.random()*255d);
@@ -430,11 +461,14 @@ public class SegmentImage extends Frame implements ActionListener {
 			cluster_pixels[i][2] = 0;
 		}
 		
-
-		for (int ii = 0; ii < 5; ii++){
+		//Run algorithm till distance becomes minimal
+		while (closest_distance_overall > 10){
 			for ( int q=0 ; q<height ; q++ ) {
 				for ( int p=0 ; p<width ; p++ ) {
+					int closest_k = 100;
+					Color closest_color = new Color(0,0,0);
 					double closest_distance = 10000d;
+					//Calculate distance from pixel to each cluster
 					for (int i = 0; i < k; i++) {
 						Color img_color = new Color(img.getRGB(p,q));
 						int img_color_r = img_color.getRed();
@@ -447,26 +481,29 @@ public class SegmentImage extends Frame implements ActionListener {
 
 						double distance = Math.sqrt(Math.pow(img_color_r - cls_r, 2) + Math.pow(img_color_g -cls_g, 2) + Math.pow(img_color_b - cls_b, 2));
 
-						// distance = Math.abs(distance);
+						//Storing cluster with closest distance to pixel
 						if (distance < closest_distance){
 							closest_distance = distance;
 							closest_k = i;
 							closest_color = cluster_center[closest_k];
-							cluster_pixel_count[closest_k]++;
 						}
-						
-
 					}
-					// System.out.println(closest_distance);
-					output_image.setRGB(p, q, closest_color.getRGB());
-					// System.out.println(closest_k);
+					if (closest_distance < closest_distance_overall){
+						closest_distance_overall = closest_distance;
+					}
 
+					cluster_pixel_count[closest_k]++;
+
+					output_image.setRGB(p, q, closest_color.getRGB());
+
+					//Adding pixel color values in each cluster
 					cluster_pixels[closest_k][0] = cluster_pixels[closest_k][0] + closest_color.getRed();
 					cluster_pixels[closest_k][1] = cluster_pixels[closest_k][1] + closest_color.getGreen();
 					cluster_pixels[closest_k][2] = cluster_pixels[closest_k][2] + closest_color.getBlue();
 
 				}
 			}
+			//Dividing total pixel color value with total pixels in each cluster to find new cluster center
 			for (int i = 0; i < k; i++) {
 				if (cluster_pixel_count[i] != 0){
 					double red = cluster_pixels[i][0] / cluster_pixel_count[i];
@@ -476,11 +513,8 @@ public class SegmentImage extends Frame implements ActionListener {
 					cluster_center[i] = new Color((int) red, (int) green, (int) blue);
 				}
 			}
-			// for (int i = 0; i < k; i++){
-			// 	System.out.println(cluster_center[i].getRed() + " " + cluster_center[i].getGreen() + " " + cluster_center[i].getBlue());
-	
-			// }
 
+			//Clear out pixel count and cluster colors
 			for (int i = 0; i < k; i++) {
 				cluster_pixels[i][0] = 0;
 				cluster_pixels[i][1] = 0;
@@ -492,92 +526,6 @@ public class SegmentImage extends Frame implements ActionListener {
 		
 		return output_image;
 	}
-	// public BufferedImage k_means(BufferedImage img, int k){
-	// 	BufferedImage output_image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-	// 	int x_bounds = width;
-	// 	int y_bounds = height;
-	// 	int clusters[][] = new int[k][3];
-	// 	int clusters_pixel_count[] = new int[k];
-	// 	Color cluster_color[] = new Color[k];
-
-	// 	int closest_distance = 20000000;
-	// 	int closest_k = 0;
-	// 	String closest_cluster = "";
-	// 	for (int i = 0; i < k; i++){
-	// 		clusters_pixel_count[i] = 0;
-	// 		int clr_val_r = (int) (Math.random()*255d);
-	// 		int clr_val_g = (int) (Math.random()*255d);
-	// 		int clr_val_b = (int) (Math.random()*255d);
-
-	// 		Color clr = new Color(clr_val_r, clr_val_g, clr_val_b);
-			
-	// 		cluster_color[i] = clr;
-	// 	}
-	// 	for (int j = 0; j < 1; j++){
-	// 		for ( int q=0 ; q<height ; q++ ) {
-	// 			for ( int p=0 ; p<width ; p++ ) {
-	// 				for (int i = 0; i < k; i++){
-	// 					Color img_color = new Color(img.getRGB(p,q));
-	// 					int img_color_r = img_color.getRed();
-	// 					int img_color_g = img_color.getGreen();
-	// 					int img_color_b = img_color.getBlue();
-
-	// 					int cls_r = cluster_color[i].getRed();
-	// 					int cls_g = cluster_color[i].getBlue();
-	// 					int cls_b = cluster_color[i].getGreen();
-
-	// 					int distance = Math.abs(img_color_r - cls_r) + Math.abs(img_color_g - cls_g) + Math.abs(img_color_b - cls_b);
-	// 					// distance = Math.abs(distance);
-	// 					if (distance < closest_distance){
-	// 						closest_distance = distance;
-	// 						closest_k = i;
-	// 					}
-	// 				}
-	// 				output_image.setRGB(p,q, new Color(cluster_color[closest_k].getRed(), cluster_color[closest_k].getGreen(), cluster_color[closest_k].getBlue()).getRGB());
-	// 				closest_distance = 2000000;
-	// 				closest_k = 0;
-	// 			}
-	// 		}
-	// 		for ( int q=0 ; q<height ; q++ ) {
-	// 			for ( int p=0 ; p<width ; p++ ) {
-	// 				Color out_color = new Color(output_image.getRGB(p,q));
-	// 				int out_color_r = out_color.getRed();
-	// 				int out_color_g = out_color.getGreen();
-	// 				int out_color_b = out_color.getBlue();
-
-	// 				Color img_color = new Color(img.getRGB(p,q));
-	// 				int img_color_r = img_color.getRed();
-	// 				int img_color_g = img_color.getGreen();
-	// 				int img_color_b = img_color.getBlue();
-					
-	// 				for (int i = 0; i < k; i++){
-	// 					if (cluster_color[i].getRed() == out_color_r){
-	// 						clusters[i][0] = clusters[i][0] + img_color_r;
-	// 						clusters[i][1] = clusters[i][1] + img_color_g;
-	// 						clusters[i][2] = clusters[i][2] + img_color_b;
-	// 						clusters_pixel_count[i] = clusters_pixel_count[i] + 1;
-	// 					}
-	// 				}				
-	// 			}
-	// 		}
-	// 		for (int i = 0; i < k; i++){
-	// 			int total_pixels = clusters_pixel_count[i];
-	// 			if (total_pixels != 0){
-	// 			int red = clusters[i][0]/total_pixels;
-	// 			int green = clusters[i][1]/total_pixels;
-	// 			int blue = clusters[i][2]/total_pixels;
-	// 			red = Math.min(red, 255);
-	// 			green = Math.min(green, 255);
-	// 			blue = Math.min(blue, 255);
-	// 			cluster_color[i] = new Color(red, green, blue);
-	// 		}
-	// 	}
-	// 		for (int i = 0; i < k; i++){
-	// 			clusters_pixel_count[i] = 0;
-	// 		}
-	// 	}
-	// 	return output_image;
-	// }
 
 	/*Grayscale conversion Function
 		Input (BufferedImage): Image to convert to grayscale
@@ -601,7 +549,8 @@ public class SegmentImage extends Frame implements ActionListener {
 		}
 		return grayscaleImage;
 	}
-		/*Approximation Filter Function
+	
+	/*Approximation Filter Function
 		Input (BufferedImage): Image to apply filter to
 		Output (BufferedImage): Approximated Image
 	*/
@@ -667,25 +616,11 @@ public class SegmentImage extends Frame implements ActionListener {
 		result.setRGB(0, 0, width, height, output, 0, width);
 		return result;
 	}
-	// public BufferedImage grayscale(BufferedImage img){
-	// 	BufferedImage grayscaleImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		
-	// 	for (int i = 0; i < grayscaleImage.getHeight(); i++) {
-	// 		for (int j = 0; j < grayscaleImage.getWidth(); j++) {
-	// 			Color c = new Color(img.getRGB(j, i));
-	// 			int red = (int) (c.getRed() * 0.299f);
-	// 			int green = (int) (c.getGreen() * 0.587f);
-	// 			int blue = (int) (c.getBlue() * 0.114f);
-	// 			Color newColor = new Color(
-	// 					red + green + blue,
-	// 					red + green + blue,
-	// 					red + green + blue);
-	// 			grayscaleImage.setRGB(j, i, newColor.getRGB());
-	// 		}
-	// 	}
-	// 	return grayscaleImage;
-	// }
 
+	/*Function to find the Maximum intensity of a grayscale image
+		Input (BufferedImage): Original Grayscale Image
+		Output (int): Maximum Intensity of input image
+	*/
 	public int max_intensity(BufferedImage img){
 		int max = 0;
 		
@@ -701,6 +636,10 @@ public class SegmentImage extends Frame implements ActionListener {
 		return max;
 	}
 
+	/*Function to find the minimum intensity of a grayscale image
+		Input (BufferedImage): Original Grayscale Image
+		Output (int): minimum Intensity of input image
+	*/
 	public int min_intensity(BufferedImage img){
 		int min = 255;
 		
@@ -716,9 +655,6 @@ public class SegmentImage extends Frame implements ActionListener {
 		return min;
 	}
 
-	public void print_(Object obj){
-		System.out.println(obj);
-	}
 	public static void main(String[] args) {
 		new SegmentImage(args.length==1 ? args[0] : "camera_man.png");
 	}
