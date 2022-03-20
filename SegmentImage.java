@@ -460,9 +460,18 @@ public class SegmentImage extends Frame implements ActionListener {
 			cluster_pixels[i][1] = 0;
 			cluster_pixels[i][2] = 0;
 		}
-		
+
+		double[] final_distances = new double[5];
+		final_distances[0] = 1000000d;
+		final_distances[1] = 100000d;
+		final_distances[2] = 10000d;
+		final_distances[3] = 1000d;
+		final_distances[4] = 100d;
+		double dis = 10000;
+		int cc = 0;
+		boolean stop = false;
 		//Run algorithm till distance becomes minimal
-		while (closest_distance_overall > 10){
+		while (stop == false){
 			for ( int q=0 ; q<height ; q++ ) {
 				for ( int p=0 ; p<width ; p++ ) {
 					int closest_k = 100;
@@ -480,7 +489,7 @@ public class SegmentImage extends Frame implements ActionListener {
 						int cls_b = cluster_center[i].getGreen();
 
 						double distance = Math.sqrt(Math.pow(img_color_r - cls_r, 2) + Math.pow(img_color_g -cls_g, 2) + Math.pow(img_color_b - cls_b, 2));
-
+						// System.out.println("Dis" + distance);
 						//Storing cluster with closest distance to pixel
 						if (distance < closest_distance){
 							closest_distance = distance;
@@ -488,10 +497,12 @@ public class SegmentImage extends Frame implements ActionListener {
 							closest_color = cluster_center[closest_k];
 						}
 					}
+
 					if (closest_distance < closest_distance_overall){
 						closest_distance_overall = closest_distance;
 					}
-
+					
+					dis = closest_distance;
 					cluster_pixel_count[closest_k]++;
 
 					output_image.setRGB(p, q, closest_color.getRGB());
@@ -500,9 +511,10 @@ public class SegmentImage extends Frame implements ActionListener {
 					cluster_pixels[closest_k][0] = cluster_pixels[closest_k][0] + closest_color.getRed();
 					cluster_pixels[closest_k][1] = cluster_pixels[closest_k][1] + closest_color.getGreen();
 					cluster_pixels[closest_k][2] = cluster_pixels[closest_k][2] + closest_color.getBlue();
-
 				}
+				
 			}
+			
 			//Dividing total pixel color value with total pixels in each cluster to find new cluster center
 			for (int i = 0; i < k; i++) {
 				if (cluster_pixel_count[i] != 0){
@@ -521,7 +533,26 @@ public class SegmentImage extends Frame implements ActionListener {
 				cluster_pixels[i][2] = 0;
 				cluster_pixel_count[i] = 0;
 			}
-			
+			final_distances[0] = final_distances[1];
+			final_distances[1] = final_distances[2];
+			final_distances[2] = final_distances[3];
+			final_distances[3] = final_distances[4];
+			final_distances[4] = dis;
+
+			if (final_distances[4] == final_distances[3]){
+				if (final_distances[3] == final_distances[2]){
+					if (final_distances[2] == final_distances[1]){
+						if (final_distances[1] == final_distances[0]){
+							stop = true;
+						}
+					}
+				}
+			}
+						
+			// System.out.println(final_distances[0] + " " + final_distances[1] + " " + final_distances[2] + " " +final_distances[3] + " " + final_distances[4]);
+
+			cc++;
+			// System.out.println(cc);
 		}
 		
 		return output_image;
