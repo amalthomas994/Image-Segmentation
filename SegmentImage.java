@@ -429,7 +429,7 @@ public class SegmentImage extends Frame implements ActionListener {
 	}
 
 	/*Function to apply K-Means image segmentation
-		Input (BufferedImage, int): Original RGB image, number of K clusters desired
+		Input (BufferedImage, int): Original RGB image, number of K cluster_centers desired
 		Output (BufferedImage): Image segmented with K randomly generated colors
 		K-Means Function:
 			- Randomly assign K colors to K cluster centers
@@ -439,124 +439,95 @@ public class SegmentImage extends Frame implements ActionListener {
 			- Once all pixels are assigned to it's respective cluster, computer the new cluster center
 				- Average all colors in the cluster by adding all colors in the cluster and dividing by total number of pixels in the cluster
 			- Repeat algorithm with new cluster centers
-			- Stop algorithm until there is no further change in assignment of pixel points to clusters.
+			- Stop algorithm until there is no further change in assignment of pixel points to cluster_centers.
 	*/
-	public BufferedImage k_means(BufferedImage img, int k){
-		BufferedImage output_image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		Color[] cluster_center = new Color[k];
-		int[][] cluster_pixels = new int[k][3];
-		int[] cluster_pixel_count = new int[k];
-		double closest_distance_overall = 1000000d;
-		
-		//Picking K cluster centers randomly
-		for (int i = 0; i < k; i++){
-			int random_red = (int) (Math.random()*255d);
-			int random_green = (int) (Math.random()*255d);
-			int random_blue = (int) (Math.random()*255d);
-			Color center_color = new Color(random_red,random_green,random_blue);
-			cluster_center[i] = center_color;
-			cluster_pixel_count[i] = 0;
-			cluster_pixels[i][0] = 0;
-			cluster_pixels[i][1] = 0;
-			cluster_pixels[i][2] = 0;
-		}
+    public BufferedImage k_means(BufferedImage img, int k){
+        BufferedImage final_image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Color[] cluster_colors = new Color[k];   
+        double[][] cluster_centers = new double[k][3];
+        int[] pixels_in_cluster = new int[k]; 
+        
+        
+        //Creating K clusters with random colors
+        for (int i = 0; i < k; i++){
+            Color clr = new Color((int) (Math.random()*255d), (int) (Math.random()*255d), (int) (Math.random()*255d));
+            pixels_in_cluster[i] = 0;
+            cluster_colors[i] = clr;
+        }
+        
+        //Calculating pixel distance from cluster center
+        for (int total_iterations = 0; total_iterations < 100; total_iterations++){
+            for ( int q=0 ; q<height ; q++ ){
+                for ( int p=0 ; p<width ; p++ ){
+                    double closest_distance = 100000d;
+                    int closest_k = 0;
+                    Color closest_color = new Color(0,0,0);
+                    //For each pixel, find the cluster color closest to pixel color in image using city block distance
+                    for (int i = 0; i < k; i++){
+                        Color img_color = new Color(img.getRGB(p,q));
+                        int img_color_r = img_color.getRed();
+                        int img_color_g = img_color.getGreen();
+                        int img_color_b = img_color.getBlue();
+                        int cls_r = cluster_colors[i].getRed();
+                        int cls_g = cluster_colors[i].getBlue();
+                        int cls_b = cluster_colors[i].getGreen();
 
-		double[] final_distances = new double[5];
-		final_distances[0] = 1000000d;
-		final_distances[1] = 100000d;
-		final_distances[2] = 10000d;
-		final_distances[3] = 1000d;
-		final_distances[4] = 100d;
-		double dis = 10000;
-		int cc = 0;
-		boolean stop = false;
-		//Run algorithm till distance becomes minimal
-		while (stop == false){
-			for ( int q=0 ; q<height ; q++ ) {
-				for ( int p=0 ; p<width ; p++ ) {
-					int closest_k = 100;
-					Color closest_color = new Color(0,0,0);
-					double closest_distance = 10000d;
-					//Calculate distance from pixel to each cluster
-					for (int i = 0; i < k; i++) {
-						Color img_color = new Color(img.getRGB(p,q));
-						int img_color_r = img_color.getRed();
-						int img_color_g = img_color.getGreen();
-						int img_color_b = img_color.getBlue();
-
-						int cls_r = cluster_center[i].getRed();
-						int cls_g = cluster_center[i].getBlue();
-						int cls_b = cluster_center[i].getGreen();
-
-						double distance = Math.sqrt(Math.pow(img_color_r - cls_r, 2) + Math.pow(img_color_g -cls_g, 2) + Math.pow(img_color_b - cls_b, 2));
-						// System.out.println("Dis" + distance);
-						//Storing cluster with closest distance to pixel
-						if (distance < closest_distance){
-							closest_distance = distance;
-							closest_k = i;
-							closest_color = cluster_center[closest_k];
-						}
-					}
-
-					if (closest_distance < closest_distance_overall){
-						closest_distance_overall = closest_distance;
-					}
-					
-					dis = closest_distance;
-					cluster_pixel_count[closest_k]++;
-
-					output_image.setRGB(p, q, closest_color.getRGB());
-
-					//Adding pixel color values in each cluster
-					cluster_pixels[closest_k][0] = cluster_pixels[closest_k][0] + closest_color.getRed();
-					cluster_pixels[closest_k][1] = cluster_pixels[closest_k][1] + closest_color.getGreen();
-					cluster_pixels[closest_k][2] = cluster_pixels[closest_k][2] + closest_color.getBlue();
-				}
-				
-			}
-			
-			//Dividing total pixel color value with total pixels in each cluster to find new cluster center
-			for (int i = 0; i < k; i++) {
-				if (cluster_pixel_count[i] != 0){
-					double red = cluster_pixels[i][0] / cluster_pixel_count[i];
-					double green = cluster_pixels[i][1] / cluster_pixel_count[i];
-					double blue = cluster_pixels[i][2] / cluster_pixel_count[i];
-
-					cluster_center[i] = new Color((int) red, (int) green, (int) blue);
-				}
-			}
-
-			//Clear out pixel count and cluster colors
-			for (int i = 0; i < k; i++) {
-				cluster_pixels[i][0] = 0;
-				cluster_pixels[i][1] = 0;
-				cluster_pixels[i][2] = 0;
-				cluster_pixel_count[i] = 0;
-			}
-			final_distances[0] = final_distances[1];
-			final_distances[1] = final_distances[2];
-			final_distances[2] = final_distances[3];
-			final_distances[3] = final_distances[4];
-			final_distances[4] = dis;
-
-			if (final_distances[4] == final_distances[3]){
-				if (final_distances[3] == final_distances[2]){
-					if (final_distances[2] == final_distances[1]){
-						if (final_distances[1] == final_distances[0]){
-							stop = true;
-						}
-					}
-				}
-			}
+                        //City Block distance
+                        int distance = Math.abs(img_color_r - cls_r) + Math.abs(img_color_g - cls_g) + Math.abs(img_color_b - cls_b);
 						
-			// System.out.println(final_distances[0] + " " + final_distances[1] + " " + final_distances[2] + " " +final_distances[3] + " " + final_distances[4]);
+                        if (distance < closest_distance){
+                            closest_distance = distance;
+                            closest_k = i;
+                            closest_color = cluster_colors[closest_k];
+                        }
+                    }
+                    final_image.setRGB(p, q, closest_color.getRGB());
+                }
+            }
 
-			cc++;
-			// System.out.println(cc);
-		}
-		
-		return output_image;
-	}
+            //Finding pixels belonging to each cluster
+            for ( int q=0 ; q<height ; q++ ) {
+                for ( int p=0 ; p<width ; p++ ) {
+                    Color output_image_color = new Color(final_image.getRGB(p,q));
+                    int output_image_color_r = output_image_color.getRed();
+                    int output_image_color_g = output_image_color.getGreen();
+                    int output_image_color_b = output_image_color.getBlue();
+                    Color img_color = new Color(img.getRGB(p,q));
+                    int img_color_r = img_color.getRed();
+                    int img_color_g = img_color.getGreen();
+                    int img_color_b = img_color.getBlue();
+
+                    //Check which cluster pixel belongs to
+                    for (int i = 0; i < k; i++){
+                        //If pixel belongs to a cluster, add pixel color to cluster color
+                        if (cluster_colors[i].getRed() == output_image_color_r && cluster_colors[i].getGreen() == output_image_color_g && cluster_colors[i].getBlue() == output_image_color_b){
+                            cluster_centers[i][0] = cluster_centers[i][0] + img_color_r;
+                            cluster_centers[i][1] = cluster_centers[i][1] + img_color_g;
+                            cluster_centers[i][2] = cluster_centers[i][2] + img_color_b;
+                            pixels_in_cluster[i] = pixels_in_cluster[i] + 1; 
+                        }
+                    }
+                }
+            }
+            //Finding new cluster colors
+            for (int i = 0; i < k; i++){
+                if (pixels_in_cluster[i] != 0){
+                    double red = cluster_centers[i][0] / pixels_in_cluster[i];
+                    double green = cluster_centers[i][1] / pixels_in_cluster[i];
+                    double blue = cluster_centers[i][2] / pixels_in_cluster[i];
+                    cluster_colors[i] = new Color((int) red, (int) green, (int) blue);
+                }
+            }
+            //Clear out pixel counts and center colors
+            for (int i = 0; i < k; i++){
+                cluster_centers[i][0] = 0;
+                cluster_centers[i][1] = 0;
+                cluster_centers[i][2] = 0;
+                pixels_in_cluster[i] = 0;
+            }
+        }
+        return final_image;
+    }
 
 	/*Grayscale conversion Function
 		Input (BufferedImage): Image to convert to grayscale
